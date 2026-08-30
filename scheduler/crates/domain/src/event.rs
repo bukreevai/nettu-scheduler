@@ -7,6 +7,7 @@ use crate::{
 };
 use crate::{event_instance::EventInstance, shared::entity::ID};
 use chrono::{prelude::*, Duration};
+use chrono_tz::Tz;
 use rrule::{RRule, RRuleSet};
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,11 @@ pub struct CalendarEvent {
     pub end_ts: i64,
     pub created: i64,
     pub updated: i64,
+    /// Overrides `Calendar.settings.timezone` when expanding this event's
+    /// recurrence. `None` (or a value equal to the calendar's timezone)
+    /// preserves the original behavior of expanding against the calendar's
+    /// timezone; any other value is used instead.
+    pub timezone: Option<Tz>,
     pub recurrence: Option<RRuleOptions>,
     pub exdates: Vec<i64>,
     pub calendar_id: ID,
@@ -71,10 +77,22 @@ impl CalendarEventReminder {
 }
 
 impl CalendarEvent {
+    /// Resolves the `CalendarSettings` to expand this event's recurrence
+    /// against: the event's own `timezone` override if set, otherwise the
+    /// calendar's timezone unchanged.
+    fn effective_calendar_settings(&self, calendar_settings: &CalendarSettings) -> CalendarSettings {
+        CalendarSettings {
+            timezone: self.timezone.unwrap_or(calendar_settings.timezone),
+            week_start: calendar_settings.week_start,
+        }
+    }
+
     fn update_endtime(&mut self, calendar_settings: &CalendarSettings) -> bool {
         match self.recurrence.clone() {
             Some(recurrence) => {
-                let rrule_options = recurrence.get_parsed_options(self.start_ts, calendar_settings);
+                let effective_settings = self.effective_calendar_settings(calendar_settings);
+                let rrule_options =
+                    recurrence.get_parsed_options(self.start_ts, &effective_settings);
                 if (rrule_options.count.is_some() && rrule_options.count.unwrap() > 0)
                     || rrule_options.until.is_some()
                 {
@@ -113,7 +131,8 @@ impl CalendarEvent {
 
     pub fn get_rrule_set(&self, calendar_settings: &CalendarSettings) -> Option<RRuleSet> {
         self.recurrence.clone().map(|recurrence| {
-            let rrule_options = recurrence.get_parsed_options(self.start_ts, calendar_settings);
+            let effective_settings = self.effective_calendar_settings(calendar_settings);
+            let rrule_options = recurrence.get_parsed_options(self.start_ts, &effective_settings);
             let tzid = rrule_options.tzid;
             let mut rrule_set = RRuleSet::new();
             for exdate in &self.exdates {
@@ -133,7 +152,9 @@ impl CalendarEvent {
     ) -> Vec<EventInstance> {
         match self.recurrence.clone() {
             Some(recurrence) => {
-                let rrule_options = recurrence.get_parsed_options(self.start_ts, calendar_settings);
+                let effective_settings = self.effective_calendar_settings(calendar_settings);
+                let rrule_options =
+                    recurrence.get_parsed_options(self.start_ts, &effective_settings);
                 let tzid = rrule_options.tzid;
                 let rrule_set = self.get_rrule_set(calendar_settings).unwrap();
 

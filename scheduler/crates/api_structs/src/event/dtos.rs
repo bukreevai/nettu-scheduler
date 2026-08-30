@@ -1,5 +1,5 @@
 use nettu_scheduler_domain::{
-    CalendarEvent, CalendarEventReminder, EventInstance, Metadata, RRuleOptions, ID,
+    CalendarEvent, CalendarEventReminder, EventInstance, Metadata, RRuleOptions, Tz, ID,
 };
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +9,7 @@ pub struct CalendarEventDTO {
     pub id: ID,
     pub start_ts: i64,
     pub duration: i64,
+    pub timezone: Option<Tz>,
     pub busy: bool,
     pub updated: i64,
     pub created: i64,
@@ -26,6 +27,7 @@ impl CalendarEventDTO {
             id: event.id.clone(),
             start_ts: event.start_ts,
             duration: event.duration,
+            timezone: event.timezone,
             busy: event.busy,
             updated: event.updated,
             created: event.created,

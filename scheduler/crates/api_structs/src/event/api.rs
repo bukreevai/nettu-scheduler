@@ -1,7 +1,20 @@
 use crate::dtos::CalendarEventDTO;
 use nettu_scheduler_domain::{CalendarEvent, EventInstance};
-use nettu_scheduler_domain::{CalendarEventReminder, RRuleOptions, ID};
-use serde::{Deserialize, Serialize};
+use nettu_scheduler_domain::{CalendarEventReminder, RRuleOptions, Tz, ID};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Distinguishes an omitted field (`None`) from a field explicitly supplied
+/// as `null` (`Some(None)`) versus a field supplied with a value
+/// (`Some(Some(value))`). Plain `Option<Option<T>>` cannot make this
+/// distinction on its own because serde treats a missing key and an
+/// explicit `null` the same way by default.
+fn deserialize_some<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer).map(Some)
+}
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +46,8 @@ pub mod create_event {
         pub calendar_id: ID,
         pub start_ts: i64,
         pub duration: i64,
+        #[serde(default)]
+        pub timezone: Option<Tz>,
         #[serde(default)]
         pub busy: Option<bool>,
         #[serde(default)]
@@ -142,6 +157,16 @@ pub mod update_event {
         pub start_ts: Option<i64>,
         #[serde(default)]
         pub duration: Option<i64>,
+        /// Outer `Option`: field omitted (`None`, leave the override
+        /// untouched) vs supplied (`Some`). Inner `Option`: an explicit
+        /// `null` clears the override back to the calendar's timezone
+        /// (`Some(None)`), a value sets it (`Some(Some(tz))`).
+        #[serde(
+            default,
+            deserialize_with = "deserialize_some",
+            skip_serializing_if = "Option::is_none"
+        )]
+        pub timezone: Option<Option<Tz>>,
         #[serde(default)]
         pub busy: Option<bool>,
         #[serde(default)]

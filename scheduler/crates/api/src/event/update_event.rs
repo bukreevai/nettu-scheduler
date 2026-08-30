@@ -33,6 +33,7 @@ pub async fn update_event_admin_controller(
         event_id: e.id,
         duration: body.duration,
         start_ts: body.start_ts,
+        timezone: body.timezone,
         reminders: body.reminders,
         recurrence: body.recurrence,
         busy: body.busy,
@@ -61,6 +62,7 @@ pub async fn update_event_controller(
         event_id: path_params.event_id.clone(),
         duration: body.duration,
         start_ts: body.start_ts,
+        timezone: body.timezone,
         reminders: body.reminders,
         recurrence: body.recurrence,
         busy: body.busy,
@@ -82,6 +84,9 @@ pub struct UpdateEventUseCase {
     pub start_ts: Option<i64>,
     pub busy: Option<bool>,
     pub duration: Option<i64>,
+    /// `None` leaves the timezone override untouched, `Some(None)` clears
+    /// it (reverting to the calendar's timezone), `Some(Some(tz))` sets it.
+    pub timezone: Option<Option<nettu_scheduler_domain::Tz>>,
     pub reminders: Option<Vec<CalendarEventReminder>>,
     pub recurrence: Option<RRuleOptions>,
     pub service_id: Option<ID>,
@@ -130,6 +135,7 @@ impl UseCase for UpdateEventUseCase {
             start_ts,
             busy,
             duration,
+            timezone,
             recurrence,
             exdates,
             reminders,
@@ -176,6 +182,14 @@ impl UseCase for UpdateEventUseCase {
         };
 
         let mut start_or_duration_change = false;
+        let mut recurrence_context_change = false;
+
+        if let Some(timezone) = timezone {
+            if e.timezone != *timezone {
+                e.timezone = *timezone;
+                recurrence_context_change = true;
+            }
+        }
 
         if let Some(start_ts) = start_ts {
             if e.start_ts != *start_ts {
@@ -197,7 +211,8 @@ impl UseCase for UpdateEventUseCase {
         let valid_recurrence = if let Some(rrule_opts) = recurrence.clone() {
             // ? should exdates be deleted when rrules are updated
             e.set_recurrence(rrule_opts, &calendar.settings, true)
-        } else if start_or_duration_change && e.recurrence.is_some() {
+        } else if (start_or_duration_change || recurrence_context_change) && e.recurrence.is_some()
+        {
             e.set_recurrence(e.recurrence.clone().unwrap(), &calendar.settings, true)
         } else {
             e.recurrence = None;

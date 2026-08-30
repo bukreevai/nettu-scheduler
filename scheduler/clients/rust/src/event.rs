@@ -1,7 +1,7 @@
 use crate::{shared::MetadataFindInput, APIResponse, BaseClient};
 use crate::{CalendarEventReminder, RRuleOptions, ID};
 use nettu_scheduler_api_structs::*;
-use nettu_scheduler_domain::Metadata;
+use nettu_scheduler_domain::{Metadata, Tz};
 use reqwest::StatusCode;
 use serde::Serialize;
 use std::sync::Arc;
@@ -18,6 +18,8 @@ pub struct CreateEventInput {
     pub calendar_id: ID,
     pub start_ts: i64,
     pub duration: i64,
+    #[serde(default)]
+    pub timezone: Option<Tz>,
     #[serde(default)]
     pub busy: Option<bool>,
     #[serde(default)]
@@ -40,6 +42,9 @@ pub struct UpdateEventInput {
     pub event_id: ID,
     pub start_ts: Option<i64>,
     pub duration: Option<i64>,
+    /// `None` leaves the timezone override untouched, `Some(None)` clears
+    /// it (reverting to the calendar's timezone), `Some(Some(tz))` sets it.
+    pub timezone: Option<Option<Tz>>,
     pub busy: Option<bool>,
     pub reminders: Option<Vec<CalendarEventReminder>>,
     pub rrule_options: Option<RRuleOptions>,
@@ -86,6 +91,7 @@ impl CalendarEventClient {
             calendar_id: input.calendar_id,
             start_ts: input.start_ts,
             duration: input.duration,
+            timezone: input.timezone,
             busy: input.busy,
             recurrence: input.recurrence,
             reminders: input.reminders,
@@ -119,6 +125,7 @@ impl CalendarEventClient {
         let body = update_event::RequestBody {
             busy: input.busy,
             duration: input.duration,
+            timezone: input.timezone,
             exdates: input.exdates,
             recurrence: input.rrule_options,
             reminders: input.reminders,

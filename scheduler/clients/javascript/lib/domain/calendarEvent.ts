@@ -24,6 +24,8 @@ export interface CalendarEvent {
   id: string;
   startTs: number;
   duration: number;
+  /** Overrides the calendar's timezone for this event's recurrence, if set. */
+  timezone?: string;
   busy: boolean;
   updated: number;
   created: number;

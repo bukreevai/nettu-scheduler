@@ -7,6 +7,7 @@ use crate::shared::{
 };
 use actix_web::{web, HttpResponse};
 use nettu_scheduler_api_structs::create_event::*;
+use chrono_tz::Tz;
 use nettu_scheduler_domain::{
     CalendarEvent, CalendarEventReminder, Metadata, RRuleOptions, User, ID,
 };
@@ -26,6 +27,7 @@ pub async fn create_event_admin_controller(
         busy: body.busy.unwrap_or(false),
         start_ts: body.start_ts,
         duration: body.duration,
+        timezone: body.timezone,
         user,
         calendar_id: body.calendar_id,
         recurrence: body.recurrence,
@@ -52,6 +54,7 @@ pub async fn create_event_controller(
         busy: body.busy.unwrap_or(false),
         start_ts: body.start_ts,
         duration: body.duration,
+        timezone: body.timezone,
         calendar_id: body.calendar_id,
         recurrence: body.recurrence,
         user,
@@ -72,6 +75,7 @@ pub struct CreateEventUseCase {
     pub user: User,
     pub start_ts: i64,
     pub duration: i64,
+    pub timezone: Option<Tz>,
     pub busy: bool,
     pub recurrence: Option<RRuleOptions>,
     pub reminders: Vec<CalendarEventReminder>,
@@ -130,6 +134,7 @@ impl UseCase for CreateEventUseCase {
             busy: self.busy,
             start_ts: self.start_ts,
             duration: self.duration,
+            timezone: self.timezone,
             created: ctx.sys.get_timestamp_millis(),
             updated: ctx.sys.get_timestamp_millis(),
             recurrence: None,
