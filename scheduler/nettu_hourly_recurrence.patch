@@ -1,0 +1,43 @@
+diff --git a/scheduler/crates/domain/src/shared/recurrence.rs b/scheduler/crates/domain/src/shared/recurrence.rs
+index upstream..project 100644
+--- a/scheduler/crates/domain/src/shared/recurrence.rs
++++ b/scheduler/crates/domain/src/shared/recurrence.rs
+@@
+ pub enum RRuleFrequency {
+     Yearly,
+     Monthly,
+     Weekly,
+     Daily,
++    Hourly,
+ }
+@@
+ fn freq_convert(freq: &RRuleFrequency) -> Frequenzy {
+     match freq {
+         RRuleFrequency::Yearly => Frequenzy::Yearly,
+         RRuleFrequency::Monthly => Frequenzy::Monthly,
+         RRuleFrequency::Weekly => Frequenzy::Weekly,
+         RRuleFrequency::Daily => Frequenzy::Daily,
++        RRuleFrequency::Hourly => Frequenzy::Hourly,
+     }
+ }
+@@
+         let dtstart = timezone.timestamp(start_ts / 1000, 0);
+
+         let count = self.count.map(|c| std::cmp::max(c, 0) as u32);
++        // RFC 5545 defaulting semantics:
++        // for frequencies below HOURLY, DTSTART's hour constrains the time;
++        // for HOURLY itself, BYHOUR must remain empty unless explicitly
++        // supplied, otherwise the rule would be filtered to one hour of day.
++        let byhour = match self.freq {
++            RRuleFrequency::Hourly => Vec::new(),
++            _ => vec![dtstart.hour() as usize],
++        };
+         let mut byweekday = Vec::new();
+@@
+-            freq: freq_convert(&self.freq),
++            freq: freq_convert(&self.freq),
+@@
+-            byhour: vec![dtstart.hour() as usize],
++            byhour,
+             byminute: vec![dtstart.minute() as usize],
+             bysecond: vec![dtstart.second() as usize],

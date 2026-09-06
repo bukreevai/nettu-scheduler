@@ -1,0 +1,197 @@
+diff --git a/scheduler/crates/domain/src/event.rs b/scheduler/crates/domain/src/event.rs
+--- a/scheduler/crates/domain/src/event.rs
++++ b/scheduler/crates/domain/src/event.rs
+@@
+ pub struct CalendarEvent {
+     pub id: ID,
+     pub start_ts: i64,
+     pub duration: i64,
++    /// Optional recurrence timezone override.
++    /// None preserves the original behavior and uses Calendar.settings.timezone.
++    pub timezone: Option<chrono_tz::Tz>,
+     pub busy: bool,
+@@
+ impl CalendarEvent {
++    fn effective_calendar_settings(
++        &self,
++        calendar_settings: &CalendarSettings,
++    ) -> CalendarSettings {
++        CalendarSettings {
++            timezone: self.timezone.unwrap_or(calendar_settings.timezone),
++            week_start: calendar_settings.week_start,
++        }
++    }
++
+     fn update_endtime(&mut self, calendar_settings: &CalendarSettings) -> bool {
+@@
+-                let rrule_options = recurrence.get_parsed_options(self.start_ts, calendar_settings);
++                let effective_settings = self.effective_calendar_settings(calendar_settings);
++                let rrule_options =
++                    recurrence.get_parsed_options(self.start_ts, &effective_settings);
+@@
+-                    let expand = self.expand(None, calendar_settings);
++                    let expand = self.expand(None, calendar_settings);
+@@
+     pub fn set_recurrence(
+@@
+-        if update_endtime {
++        if update_endtime {
+             return self.update_endtime(calendar_settings);
+         }
+@@
+     pub fn get_rrule_set(&self, calendar_settings: &CalendarSettings) -> Option<RRuleSet> {
+         self.recurrence.clone().map(|recurrence| {
+-            let rrule_options = recurrence.get_parsed_options(self.start_ts, calendar_settings);
++            let effective_settings = self.effective_calendar_settings(calendar_settings);
++            let rrule_options =
++                recurrence.get_parsed_options(self.start_ts, &effective_settings);
+@@
+     pub fn expand(
+@@
+         match self.recurrence.clone() {
+             Some(recurrence) => {
+-                let rrule_options = recurrence.get_parsed_options(self.start_ts, calendar_settings);
++                let effective_settings = self.effective_calendar_settings(calendar_settings);
++                let rrule_options =
++                    recurrence.get_parsed_options(self.start_ts, &effective_settings);
+                 let tzid = rrule_options.tzid;
+                 let rrule_set = self.get_rrule_set(calendar_settings).unwrap();
+
+diff --git a/scheduler/crates/api_structs/src/event/api.rs b/scheduler/crates/api_structs/src/event/api.rs
+--- a/scheduler/crates/api_structs/src/event/api.rs
++++ b/scheduler/crates/api_structs/src/event/api.rs
+@@
+ pub mod create_event {
++    use chrono_tz::Tz;
+@@
+     pub struct RequestBody {
+         pub calendar_id: ID,
+         pub start_ts: i64,
+         pub duration: i64,
++        #[serde(default)]
++        pub timezone: Option<Tz>,
+@@
+ pub mod update_event {
++    use chrono_tz::Tz;
+@@
+     pub struct RequestBody {
+@@
+         pub duration: Option<i64>,
++        /// Outer Option: field omitted vs supplied.
++        /// Inner Option: supplied timezone vs explicit null (clear override).
++        #[serde(default)]
++        pub timezone: Option<Option<Tz>>,
+
+diff --git a/scheduler/crates/api_structs/src/event/dtos.rs b/scheduler/crates/api_structs/src/event/dtos.rs
+--- a/scheduler/crates/api_structs/src/event/dtos.rs
++++ b/scheduler/crates/api_structs/src/event/dtos.rs
+@@
+ pub struct CalendarEventDTO {
+@@
+     pub duration: i64,
++    pub timezone: Option<chrono_tz::Tz>,
+@@
+ impl CalendarEventDTO {
+@@
+             duration: event.duration,
++            timezone: event.timezone,
+
+diff --git a/scheduler/crates/api/src/event/create_event.rs b/scheduler/crates/api/src/event/create_event.rs
+--- a/scheduler/crates/api/src/event/create_event.rs
++++ b/scheduler/crates/api/src/event/create_event.rs
+@@
+     let usecase = CreateEventUseCase {
+@@
+         duration: body.duration,
++        timezone: body.timezone,
+@@
+     let usecase = CreateEventUseCase {
+@@
+         duration: body.duration,
++        timezone: body.timezone,
+@@
+ pub struct CreateEventUseCase {
+@@
+     pub duration: i64,
++    pub timezone: Option<chrono_tz::Tz>,
+@@
+         let mut e = CalendarEvent {
+@@
+             duration: self.duration,
++            timezone: self.timezone,
+
+diff --git a/scheduler/crates/api/src/event/update_event.rs b/scheduler/crates/api/src/event/update_event.rs
+--- a/scheduler/crates/api/src/event/update_event.rs
++++ b/scheduler/crates/api/src/event/update_event.rs
+@@
+     let usecase = UpdateEventUseCase {
+@@
+         duration: body.duration,
++        timezone: body.timezone,
+@@
+     let usecase = UpdateEventUseCase {
+@@
+         duration: body.duration,
++        timezone: body.timezone,
+@@
+ pub struct UpdateEventUseCase {
+@@
+     pub duration: Option<i64>,
++    pub timezone: Option<Option<chrono_tz::Tz>>,
+@@
+         let UpdateEventUseCase {
+@@
+             duration,
++            timezone,
+@@
+         let mut start_or_duration_change = false;
++        let mut recurrence_context_change = false;
++        if let Some(timezone) = timezone {
++            if e.timezone != *timezone {
++                e.timezone = *timezone;
++                recurrence_context_change = true;
++            }
++        }
+@@
+-        } else if start_or_duration_change && e.recurrence.is_some() {
++        } else if (start_or_duration_change || recurrence_context_change)
++            && e.recurrence.is_some()
++        {
+             e.set_recurrence(e.recurrence.clone().unwrap(), &calendar.settings, true)
+
+diff --git a/scheduler/crates/infra/src/repos/event/calendar_event/postgres.rs b/scheduler/crates/infra/src/repos/event/calendar_event/postgres.rs
+--- a/scheduler/crates/infra/src/repos/event/calendar_event/postgres.rs
++++ b/scheduler/crates/infra/src/repos/event/calendar_event/postgres.rs
+@@
+ struct EventRaw {
+@@
+     duration: i64,
++    timezone: Option<String>,
+@@
+         Self {
+@@
+             duration: e.duration,
++            timezone: e
++                .timezone
++                .and_then(|tz| tz.parse::<chrono_tz::Tz>().ok()),
+@@
+             INSERT INTO calendar_events(
+@@
+                 duration,
++                timezone,
+@@
+-            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
++            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+@@
+             e.duration,
++            e.timezone.map(|tz| tz.to_string()),
+@@
+             UPDATE calendar_events SET
+                 start_ts = $2,
+                 duration = $3,
+-                end_ts = $4,
++                timezone = $4,
++                end_ts = $5,
+@@
+             e.duration,
++            e.timezone.map(|tz| tz.to_string()),
