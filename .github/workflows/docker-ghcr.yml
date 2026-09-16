@@ -1,0 +1,114 @@
+name: Docker image (GHCR)
+
+# Tag vX.Y.Z: build → migration test on the production dump → push to GHCR.
+# Manual run: the same pipeline without pushing (dry run).
+#
+# Configuration (Settings → Secrets and variables → Actions):
+#   vars.MIGRATION_DUMP_S3_URI   s3://bucket/path/nettu.dump (pg_dump -Fc). Optional:
+#                                without it migrations are tested on an empty DB.
+#                                The object is deleted after the run.
+#   vars.AWS_REGION              region of the bucket
+#   vars.AWS_ENDPOINT_URL        only for S3-compatible storage (not AWS)
+#   secrets.AWS_ACCESS_KEY_ID / secrets.AWS_SECRET_ACCESS_KEY
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-ghcr
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    env:
+      LOCAL_IMAGE: nettu-scheduler:ci
+      DUMP_S3_URI: ${{ vars.MIGRATION_DUMP_S3_URI }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ENDPOINT_URL: ${{ vars.AWS_ENDPOINT_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Image name
+        run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./scheduler
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Previous release image
+        run: |
+          prev="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+            | grep -vx "${GITHUB_REF_NAME}" | head -n1 || true)"
+          if [ -n "$prev" ]; then
+            echo "PREV_IMAGE=${IMAGE_NAME}:${prev#v}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Download production dump
+        id: dump
+        if: env.DUMP_S3_URI != ''
+        run: |
+          if aws s3 ls "$DUMP_S3_URI" >/dev/null 2>&1; then
+            aws s3 cp --only-show-errors "$DUMP_S3_URI" "$RUNNER_TEMP/nettu.dump"
+            echo "DUMP_FILE=$RUNNER_TEMP/nettu.dump" >> "$GITHUB_ENV"
+            echo "downloaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::$DUMP_S3_URI not found, testing migrations on an empty database"
+          fi
+
+      - name: Migration test
+        env:
+          IMAGE: ${{ env.LOCAL_IMAGE }}
+        run: |
+          echo "### Migration test" >> "$GITHUB_STEP_SUMMARY"
+          bash scheduler/ci/migration-test.sh
+
+      - name: Push
+        if: github.event_name == 'push'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            docker tag "$LOCAL_IMAGE" "$tag"
+            docker push "$tag"
+            echo "- Pushed \`$tag\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Delete production dump
+        if: always() && steps.dump.outputs.downloaded == 'true'
+        run: |
+          rm -f "$RUNNER_TEMP/nettu.dump"
+          aws s3 rm --only-show-errors "$DUMP_S3_URI"
