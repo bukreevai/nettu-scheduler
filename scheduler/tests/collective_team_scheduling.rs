@@ -147,6 +147,7 @@ async fn test_collective_team_scheduling() {
 
         for (host, calendar) in hosts_with_calendar {
             let service_event = CreateEventInput {
+                timezone: None,
                 user_id: host.id.clone(),
                 busy: Some(true),
                 calendar_id: calendar.id.clone(),

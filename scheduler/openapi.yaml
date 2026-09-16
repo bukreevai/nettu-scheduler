@@ -1,0 +1,2398 @@
+openapi: 3.0.3
+info:
+  title: Nettu Scheduler API
+  version: "0.1.0"
+  description: |
+    Calendar / scheduling / booking API (actix-web, Rust). All routes are mounted
+    under the `/api/v1` prefix.
+
+    ## Authentication
+    Three schemes are used, depending on the route:
+
+    - **`apiKeyAuth`** (`x-api-key` header) — the account's secret API key. Used
+      by "admin" endpoints (mostly under `/user/{user_id}/...` and all
+      `/account`, `/service` endpoints) that act on behalf of an account.
+    - **`accountHeader` + `bearerAuth`** — user-level (JWT) endpoints require
+      both the `nettu-account` header (identifying the account) and an
+      `Authorization: Bearer <jwt>` header. The JWT is RS256, verified against
+      the account's registered public key, and must resolve to a user that
+      belongs to the account in the `nettu-account` header.
+    - **`accountHeader` only** — `GET /user/{user_id}/freebusy` accepts either
+      an unauthenticated call carrying only `nettu-account` (public/no-JWT
+      lookup), or an authenticated `x-api-key` call.
+
+    `GET /` and `GET /service/{service_id}/booking` require no authentication
+    at all.
+
+    Error responses are plain text (`text/plain`), not JSON.
+  contact:
+    name: Nettu Scheduler
+
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Local docker-compose (host-mapped port)
+  - url: http://nettu-scheduler:5000/api/v1
+    description: Internal docker network
+
+security: []
+
+tags:
+  - name: status
+  - name: account
+  - name: user
+  - name: calendar
+  - name: event
+  - name: schedule
+  - name: service
+
+paths:
+  /:
+    get:
+      tags: [status]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Server is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Yo! We are up!\r\n"
+
+  # ---------------------------------------------------------------- account
+  /account:
+    post:
+      tags: [account]
+      summary: Create a new account
+      description: Protected by a shared secret code configured on the server (`CREATE_ACCOUNT_SECRET_CODE`), not by API key.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/AccountDTO"
+                  secretApiKey:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      tags: [account]
+      summary: Get the authenticated account
+      security: [{ apiKeyAuth: [] }]
+      responses:
+        "200":
+          description: Account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/AccountDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /account/pubkey:
+    put:
+      tags: [account]
+      summary: Set the account's public JWT key (used to verify user JWTs)
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                publicJwtKey:
+                  type: string
+                  nullable: true
+                  description: PEM-encoded public key, or null to clear it.
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/AccountDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /account/webhook:
+    put:
+      tags: [account]
+      summary: Set the account webhook URL
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [webhookUrl]
+              properties:
+                webhookUrl:
+                  type: string
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/AccountDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [account]
+      summary: Remove the account webhook
+      security: [{ apiKeyAuth: [] }]
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/AccountDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /account/integration:
+    put:
+      tags: [account]
+      summary: Enable a calendar-provider OAuth integration for the account
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, clientSecret, redirectUri, provider]
+              properties:
+                clientId:
+                  type: string
+                clientSecret:
+                  type: string
+                redirectUri:
+                  type: string
+                provider:
+                  $ref: "#/components/schemas/IntegrationProvider"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Integration enabled for account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /account/integration/{provider}:
+    delete:
+      tags: [account]
+      summary: Remove a calendar-provider OAuth integration from the account
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderPath"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Provider integration removed from account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ------------------------------------------------------------------- user
+  /user:
+    post:
+      tags: [user]
+      summary: Create a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata:
+                  $ref: "#/components/schemas/Metadata"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserDTO"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /me:
+    get:
+      tags: [user]
+      summary: Get the current authenticated user
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /user/meta:
+    get:
+      tags: [user]
+      summary: Find users by metadata key/value (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MetaKey"
+        - $ref: "#/components/parameters/MetaValue"
+        - $ref: "#/components/parameters/Skip"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserDTO"
+
+  /user/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserIdPath"
+    get:
+      tags: [user]
+      summary: Get a user by id (admin)
+      security: [{ apiKeyAuth: [] }]
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [user]
+      summary: Update a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata:
+                  $ref: "#/components/schemas/Metadata"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [user]
+      summary: Delete a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      responses:
+        "200":
+          description: Deleted user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/{user_id}/freebusy:
+    get:
+      tags: [user]
+      summary: Get a user's busy time instances
+      description: |
+        Reachable either as a public call carrying only the `nettu-account`
+        header (no JWT), or as an authenticated `x-api-key` call.
+      security:
+        - accountHeader: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/StartTs"
+        - $ref: "#/components/parameters/EndTs"
+        - name: calendarIds
+          in: query
+          required: false
+          description: Comma-separated list of calendar ids to restrict the query to.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Busy instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                  busy:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventInstance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /me/oauth:
+    post:
+      tags: [user]
+      summary: Complete an OAuth integration flow for the current user
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthIntegrationBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /user/{user_id}/oauth:
+    post:
+      tags: [user]
+      summary: Complete an OAuth integration flow for a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthIntegrationBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /me/oauth/{provider}:
+    delete:
+      tags: [user]
+      summary: Remove an OAuth integration from the current user
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/UserResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/{user_id}/oauth/{provider}:
+    delete:
+      tags: [user]
+      summary: Remove an OAuth integration from a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/ProviderPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/UserResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------- calendar
+  /calendar:
+    post:
+      tags: [calendar]
+      summary: Create a calendar for the current user
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalendarBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/CalendarResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /user/{user_id}/calendar:
+    post:
+      tags: [calendar]
+      summary: Create a calendar for a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalendarBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /calendar/meta:
+    get:
+      tags: [calendar]
+      summary: Find calendars by metadata key/value (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MetaKey"
+        - $ref: "#/components/parameters/MetaValue"
+        - $ref: "#/components/parameters/Skip"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching calendars
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calendars:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarDTO"
+
+  /calendar/{calendar_id}:
+    get:
+      tags: [calendar]
+      summary: Get a calendar
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [calendar]
+      summary: Update a calendar
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [calendar]
+      summary: Delete a calendar
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/calendar/{calendar_id}:
+    get:
+      tags: [calendar]
+      summary: Get a calendar (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [calendar]
+      summary: Update a calendar (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [calendar]
+      summary: Delete a calendar (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /calendar/{calendar_id}/events:
+    get:
+      tags: [calendar]
+      summary: Get a calendar's events (and their instances) in a time range
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+        - $ref: "#/components/parameters/StartTs"
+        - $ref: "#/components/parameters/EndTs"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/calendar/{calendar_id}/events:
+    get:
+      tags: [calendar]
+      summary: Get a calendar's events (and their instances) in a time range (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CalendarIdPath"
+        - $ref: "#/components/parameters/StartTs"
+        - $ref: "#/components/parameters/EndTs"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /calendar/provider/google:
+    get:
+      tags: [calendar]
+      summary: List the current user's Google calendars
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MinGoogleAccessRole"
+      responses:
+        "200":
+          description: Google calendars
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calendars:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GoogleCalendarListEntry"
+
+  /user/{user_id}/calendar/provider/google:
+    get:
+      tags: [calendar]
+      summary: List a user's Google calendars (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/MinGoogleAccessRole"
+      responses:
+        "200":
+          description: Google calendars
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calendars:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GoogleCalendarListEntry"
+
+  /calendar/provider/outlook:
+    get:
+      tags: [calendar]
+      summary: List the current user's Outlook calendars
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MinOutlookAccessRole"
+      responses:
+        "200":
+          description: Outlook calendars
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calendars:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OutlookCalendar"
+
+  /user/{user_id}/calendar/provider/outlook:
+    get:
+      tags: [calendar]
+      summary: List a user's Outlook calendars (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/MinOutlookAccessRole"
+      responses:
+        "200":
+          description: Outlook calendars
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calendars:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OutlookCalendar"
+
+  /user/{user_id}/calendar/sync:
+    put:
+      tags: [calendar]
+      summary: Add a synced external calendar for a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncCalendarBody"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Calendar sync created"
+    delete:
+      tags: [calendar]
+      summary: Remove a synced external calendar from a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncCalendarBody"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Calendar sync created"
+
+  # ------------------------------------------------------------------ event
+  /events:
+    post:
+      tags: [event]
+      summary: Create a calendar event for the current user
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/{user_id}/events:
+    post:
+      tags: [event]
+      summary: Create a calendar event for a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/meta:
+    get:
+      tags: [event]
+      summary: Find events by metadata key/value (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MetaKey"
+        - $ref: "#/components/parameters/MetaValue"
+        - $ref: "#/components/parameters/Skip"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarEventDTO"
+
+  /events/{event_id}:
+    get:
+      tags: [event]
+      summary: Get a calendar event
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [event]
+      summary: Update a calendar event
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEventBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [event]
+      summary: Delete a calendar event
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/events/{event_id}:
+    get:
+      tags: [event]
+      summary: Get a calendar event (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [event]
+      summary: Update a calendar event (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEventBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [event]
+      summary: Delete a calendar event (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/CalendarEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/{event_id}/instances:
+    get:
+      tags: [event]
+      summary: Get the computed instances of a (possibly recurring) event
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+        - $ref: "#/components/parameters/StartTs"
+        - $ref: "#/components/parameters/EndTs"
+      responses:
+        "200":
+          $ref: "#/components/responses/EventInstancesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/events/{event_id}/instances:
+    get:
+      tags: [event]
+      summary: Get the computed instances of a (possibly recurring) event (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+        - $ref: "#/components/parameters/StartTs"
+        - $ref: "#/components/parameters/EndTs"
+      responses:
+        "200":
+          $ref: "#/components/responses/EventInstancesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------- schedule
+  /schedule:
+    post:
+      tags: [schedule]
+      summary: Create a schedule for the current user
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/ScheduleResponse"
+
+  /user/{user_id}/schedule:
+    post:
+      tags: [schedule]
+      summary: Create a schedule for a user (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/ScheduleResponse"
+
+  /schedule/meta:
+    get:
+      tags: [schedule]
+      summary: Find schedules by metadata key/value (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MetaKey"
+        - $ref: "#/components/parameters/MetaValue"
+        - $ref: "#/components/parameters/Skip"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schedules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduleDTO"
+
+  /schedule/{schedule_id}:
+    get:
+      tags: [schedule]
+      summary: Get a schedule
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ScheduleIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduleResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [schedule]
+      summary: Update a schedule
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ScheduleIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduleResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [schedule]
+      summary: Delete a schedule
+      security: [{ accountHeader: [], bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ScheduleIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduleResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/schedule/{schedule_id}:
+    get:
+      tags: [schedule]
+      summary: Get a schedule (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ScheduleIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduleResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [schedule]
+      summary: Update a schedule (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ScheduleIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduleResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [schedule]
+      summary: Delete a schedule (admin)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ScheduleIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduleResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------- service
+  /service:
+    post:
+      tags: [service]
+      summary: Create a service
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceBody"
+      responses:
+        "201":
+          description: Created service
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    $ref: "#/components/schemas/ServiceDTO"
+
+  /service/meta:
+    get:
+      tags: [service]
+      summary: Find services by metadata key/value
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MetaKey"
+        - $ref: "#/components/parameters/MetaValue"
+        - $ref: "#/components/parameters/Skip"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ServiceDTO"
+
+  /service/{service_id}:
+    get:
+      tags: [service]
+      summary: Get a service with its registered users
+      description: Response is NOT wrapped in an envelope object (returned directly).
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+      responses:
+        "200":
+          description: Service with users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceWithUsersDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [service]
+      summary: Update a service
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceBody"
+      responses:
+        "200":
+          description: Updated service
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    $ref: "#/components/schemas/ServiceDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [service]
+      summary: Delete a service
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+      responses:
+        "200":
+          description: Deleted service
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    $ref: "#/components/schemas/ServiceDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /service/{service_id}/users:
+    post:
+      tags: [service]
+      summary: Add a user (host) to a service
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddServiceUserBody"
+      responses:
+        "200":
+          description: Registered service user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceResourceDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /service/{service_id}/users/{user_id}:
+    put:
+      tags: [service]
+      summary: Update a service user's booking settings
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceUserBody"
+      responses:
+        "200":
+          description: Updated service user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceResourceDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [service]
+      summary: Remove a user (host) from a service
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "User removed from service"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /service/{service_id}/users/{user_id}/busy:
+    put:
+      tags: [service]
+      summary: Register an external busy calendar for a service user
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [busy]
+              properties:
+                busy:
+                  $ref: "#/components/schemas/BusyCalendar"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Busy calendar added to service user"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [service]
+      summary: Remove an external busy calendar from a service user
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [busy]
+              properties:
+                busy:
+                  $ref: "#/components/schemas/BusyCalendar"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Busy calendar added to service user"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /service/{service_id}/booking:
+    get:
+      tags: [service]
+      summary: Get available booking slots for a service
+      description: Public endpoint, no authentication required (used by booking widgets).
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+        - name: timezone
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Tz"
+        - name: duration
+          in: query
+          required: true
+          description: Slot duration in milliseconds.
+          schema:
+            type: integer
+            format: int64
+        - name: interval
+          in: query
+          required: true
+          description: Slot interval in milliseconds (must be between 10 and 60 minutes).
+          schema:
+            type: integer
+            format: int64
+        - name: startDate
+          in: query
+          required: true
+          description: "Format: YYYY-M-D"
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          required: true
+          description: "Format: YYYY-M-D"
+          schema:
+            type: string
+        - name: hostUserIds
+          in: query
+          required: false
+          description: Comma-separated list of user ids to restrict hosts to.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available booking slots by date
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ServiceBookingSlotsDateDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /service/{service_id}/booking-intend:
+    post:
+      tags: [service]
+      summary: Register a booking intent (select hosts) for a service booking
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [timestamp, duration, interval]
+              properties:
+                hostUserIds:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ID"
+                timestamp:
+                  type: integer
+                  format: int64
+                duration:
+                  type: integer
+                  format: int64
+                interval:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: Selected hosts for the booking
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  selectedHosts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserDTO"
+                  createEventForHosts:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    delete:
+      tags: [service]
+      summary: Remove a booking intent
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ServiceIdPath"
+        - name: timestamp
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deleted Booking Intend"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Account secret API key. Used for account-admin endpoints.
+    accountHeader:
+      type: apiKey
+      in: header
+      name: nettu-account
+      description: Account id, required alongside the bearer JWT (or alone for the public freebusy lookup).
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 JWT signed for a user, verified against the account's public key.
+
+  parameters:
+    UserIdPath:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ID"
+    CalendarIdPath:
+      name: calendar_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ID"
+    EventIdPath:
+      name: event_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ID"
+    ScheduleIdPath:
+      name: schedule_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ID"
+    ServiceIdPath:
+      name: service_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ID"
+    ProviderPath:
+      name: provider
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/IntegrationProvider"
+    MetaKey:
+      name: key
+      in: query
+      required: true
+      schema:
+        type: string
+    MetaValue:
+      name: value
+      in: query
+      required: true
+      schema:
+        type: string
+    Skip:
+      name: skip
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+    StartTs:
+      name: startTs
+      in: query
+      required: true
+      description: Unix timestamp in milliseconds.
+      schema:
+        type: integer
+        format: int64
+    EndTs:
+      name: endTs
+      in: query
+      required: true
+      description: Unix timestamp in milliseconds.
+      schema:
+        type: integer
+        format: int64
+    MinGoogleAccessRole:
+      name: minAccessRole
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/GoogleCalendarAccessRole"
+    MinOutlookAccessRole:
+      name: minAccessRole
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/OutlookCalendarAccessRole"
+
+  responses:
+    BadRequest:
+      description: Invalid client data
+      content:
+        text/plain:
+          schema:
+            type: string
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        text/plain:
+          schema:
+            type: string
+    NotFound:
+      description: Resource not found
+      content:
+        text/plain:
+          schema:
+            type: string
+    Conflict:
+      description: Resource already exists / conflicting state
+      content:
+        text/plain:
+          schema:
+            type: string
+    UserResponse:
+      description: User
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user:
+                $ref: "#/components/schemas/UserDTO"
+    CalendarResponse:
+      description: Calendar
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              calendar:
+                $ref: "#/components/schemas/CalendarDTO"
+    CalendarEventsResponse:
+      description: Calendar with events and their instances in the requested range
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              calendar:
+                $ref: "#/components/schemas/CalendarDTO"
+              events:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventWithInstancesDTO"
+    CalendarEventResponse:
+      description: Calendar event
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              event:
+                $ref: "#/components/schemas/CalendarEventDTO"
+    EventInstancesResponse:
+      description: Event with its computed instances in the requested range
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              event:
+                $ref: "#/components/schemas/CalendarEventDTO"
+              instances:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventInstance"
+    ScheduleResponse:
+      description: Schedule
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              schedule:
+                $ref: "#/components/schemas/ScheduleDTO"
+
+  schemas:
+    ID:
+      type: string
+      description: UUID-backed entity id.
+
+    Metadata:
+      type: object
+      additionalProperties:
+        type: string
+      description: Arbitrary string key/value metadata attached to a resource.
+
+    Tz:
+      type: string
+      description: IANA timezone name.
+      example: "America/New_York"
+
+    Weekday:
+      type: string
+      enum: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+
+    IntegrationProvider:
+      type: string
+      enum: [google, outlook]
+
+    OAuthIntegrationBody:
+      type: object
+      required: [code, provider]
+      properties:
+        code:
+          type: string
+        provider:
+          $ref: "#/components/schemas/IntegrationProvider"
+
+    # --------------------------------------------------------------- account
+    AccountWebhookSettingsDTO:
+      type: object
+      properties:
+        url:
+          type: string
+        key:
+          type: string
+
+    AccountSettingsDTO:
+      type: object
+      properties:
+        webhook:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AccountWebhookSettingsDTO"
+
+    AccountDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        publicJwtKey:
+          type: string
+          nullable: true
+          description: PEM-encoded public key.
+        settings:
+          $ref: "#/components/schemas/AccountSettingsDTO"
+
+    # ------------------------------------------------------------------ user
+    UserDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    # -------------------------------------------------------------- calendar
+    CalendarSettingsDTO:
+      type: object
+      properties:
+        weekStart:
+          $ref: "#/components/schemas/Weekday"
+        timezone:
+          $ref: "#/components/schemas/Tz"
+
+    CalendarDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        userId:
+          $ref: "#/components/schemas/ID"
+        settings:
+          $ref: "#/components/schemas/CalendarSettingsDTO"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    CreateCalendarBody:
+      type: object
+      required: [timezone]
+      properties:
+        timezone:
+          $ref: "#/components/schemas/Tz"
+        weekStart:
+          allOf:
+            - $ref: "#/components/schemas/Weekday"
+          default: Mon
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    UpdateCalendarBody:
+      type: object
+      properties:
+        settings:
+          type: object
+          properties:
+            weekStart:
+              $ref: "#/components/schemas/Weekday"
+            timezone:
+              $ref: "#/components/schemas/Tz"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    SyncCalendarBody:
+      type: object
+      required: [provider, calendarId, extCalendarId]
+      properties:
+        provider:
+          $ref: "#/components/schemas/IntegrationProvider"
+        calendarId:
+          $ref: "#/components/schemas/ID"
+        extCalendarId:
+          type: string
+          description: The id of the calendar on the external provider (Google/Outlook).
+
+    GoogleCalendarAccessRole:
+      type: string
+      enum: [owner, writer, reader, freeBusyReader]
+
+    GoogleCalendarListEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        accessRole:
+          $ref: "#/components/schemas/GoogleCalendarAccessRole"
+        summary:
+          type: string
+        summaryOverride:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        timeZone:
+          type: string
+          nullable: true
+        colorId:
+          type: string
+          nullable: true
+        backgroundColor:
+          type: string
+          nullable: true
+        foregroundColor:
+          type: string
+          nullable: true
+        hidden:
+          type: boolean
+          nullable: true
+        selected:
+          type: boolean
+          nullable: true
+        primary:
+          type: boolean
+          nullable: true
+        deleted:
+          type: boolean
+          nullable: true
+
+    OutlookCalendarAccessRole:
+      type: string
+      enum: [writer, reader]
+
+    OutlookCalendarOwner:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+
+    OutlookCalendar:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+        changeKey:
+          type: string
+        canShare:
+          type: boolean
+        canViewPrivateItems:
+          type: boolean
+        hexColor:
+          type: string
+        canEdit:
+          type: boolean
+        allowedOnlineMeetingProviders:
+          type: array
+          items:
+            type: string
+        defaultOnlineMeetingProvider:
+          type: string
+        isTallyingResponses:
+          type: boolean
+        isRemovable:
+          type: boolean
+        owner:
+          $ref: "#/components/schemas/OutlookCalendarOwner"
+
+    # ----------------------------------------------------------------- event
+    EventInstance:
+      type: object
+      properties:
+        startTs:
+          type: integer
+          format: int64
+        endTs:
+          type: integer
+          format: int64
+        busy:
+          type: boolean
+
+    EventWithInstancesDTO:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/CalendarEventDTO"
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventInstance"
+
+    CalendarEventReminder:
+      type: object
+      required: [delta, identifier]
+      properties:
+        delta:
+          type: integer
+          format: int64
+          description: Minutes before the event start to fire the reminder.
+        identifier:
+          type: string
+
+    RRuleFrequency:
+      type: string
+      enum: [Yearly, Monthly, Weekly, Daily, Hourly]
+
+    Month:
+      type: string
+      enum:
+        [January, February, March, April, May, June, July, August, September, October, November, December]
+
+    WeekDay:
+      type: string
+      description: A weekday, optionally with an nth-occurrence prefix, e.g. "Mon", "+2Mon", "-1Fri".
+      example: "+2Mon"
+
+    RRuleOptions:
+      type: object
+      properties:
+        freq:
+          $ref: "#/components/schemas/RRuleFrequency"
+        interval:
+          type: integer
+          default: 1
+        count:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 740
+        until:
+          type: integer
+          format: int64
+          nullable: true
+        bysetpos:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        byweekday:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeekDay"
+          nullable: true
+        bymonthday:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        bymonth:
+          type: array
+          items:
+            $ref: "#/components/schemas/Month"
+          nullable: true
+        byyearday:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        byweekno:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        byhour:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 23
+          nullable: true
+          description: >-
+            Restricts the recurrence to the given hours of the day (0-23).
+            When omitted for freq=Hourly, every hour is a candidate and
+            `interval` steps through them; when omitted for any other
+            frequency, the event's start time hour is used. Required to
+            express rules like "only at 11, 12 and 18 o'clock".
+
+    CalendarEventDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        calendarId:
+          $ref: "#/components/schemas/ID"
+        userId:
+          $ref: "#/components/schemas/ID"
+        startTs:
+          type: integer
+          format: int64
+        duration:
+          type: integer
+          format: int64
+        timezone:
+          type: string
+          nullable: true
+          description: >-
+            Overrides the calendar's timezone for this event's recurrence.
+            Null uses the calendar's timezone.
+          example: "America/New_York"
+        busy:
+          type: boolean
+        created:
+          type: integer
+          format: int64
+        updated:
+          type: integer
+          format: int64
+        recurrence:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RRuleOptions"
+        exdates:
+          type: array
+          items:
+            type: integer
+            format: int64
+        reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEventReminder"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    CreateEventBody:
+      type: object
+      required: [calendarId, startTs, duration]
+      properties:
+        calendarId:
+          $ref: "#/components/schemas/ID"
+        startTs:
+          type: integer
+          format: int64
+        duration:
+          type: integer
+          format: int64
+        timezone:
+          type: string
+          nullable: true
+          description: >-
+            Overrides the calendar's timezone for this event's recurrence.
+            Omitted or null uses the calendar's timezone.
+          example: "America/New_York"
+        busy:
+          type: boolean
+          nullable: true
+        recurrence:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RRuleOptions"
+        reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEventReminder"
+          default: []
+        serviceId:
+          type: string
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ID"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    UpdateEventBody:
+      type: object
+      properties:
+        startTs:
+          type: integer
+          format: int64
+          nullable: true
+        duration:
+          type: integer
+          format: int64
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+          description: >-
+            Omit to leave the timezone override untouched. Pass null to
+            clear it (revert to the calendar's timezone), or a timezone
+            name to set/replace it.
+          example: "America/New_York"
+        busy:
+          type: boolean
+          nullable: true
+        recurrence:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RRuleOptions"
+        serviceId:
+          type: string
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ID"
+        exdates:
+          type: array
+          items:
+            type: integer
+            format: int64
+          nullable: true
+        reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEventReminder"
+          nullable: true
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    # -------------------------------------------------------------- schedule
+    Time:
+      type: object
+      properties:
+        hours:
+          type: integer
+          format: int64
+        minutes:
+          type: integer
+          format: int64
+
+    ScheduleRuleInterval:
+      type: object
+      properties:
+        start:
+          $ref: "#/components/schemas/Time"
+        end:
+          $ref: "#/components/schemas/Time"
+
+    ScheduleRuleVariant:
+      type: object
+      description: Tagged union - either a weekday rule or a specific-date rule.
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [WDay]
+            value:
+              $ref: "#/components/schemas/Weekday"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [Date]
+            value:
+              type: string
+              description: "Date string, e.g. 2024-01-01"
+      discriminator:
+        propertyName: type
+
+    ScheduleRule:
+      type: object
+      properties:
+        variant:
+          $ref: "#/components/schemas/ScheduleRuleVariant"
+        intervals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleRuleInterval"
+
+    ScheduleDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        userId:
+          $ref: "#/components/schemas/ID"
+        timezone:
+          $ref: "#/components/schemas/Tz"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleRule"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    CreateScheduleBody:
+      type: object
+      required: [timezone]
+      properties:
+        timezone:
+          $ref: "#/components/schemas/Tz"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleRule"
+          nullable: true
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    UpdateScheduleBody:
+      type: object
+      properties:
+        timezone:
+          $ref: "#/components/schemas/Tz"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleRule"
+          nullable: true
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    # --------------------------------------------------------------- service
+    TimePlan:
+      type: object
+      description: Tagged union describing where a service user's availability comes from.
+      oneOf:
+        - type: object
+          properties:
+            variant:
+              type: string
+              enum: [Calendar]
+            id:
+              $ref: "#/components/schemas/ID"
+        - type: object
+          properties:
+            variant:
+              type: string
+              enum: [Schedule]
+            id:
+              $ref: "#/components/schemas/ID"
+        - type: object
+          properties:
+            variant:
+              type: string
+              enum: [Empty]
+      discriminator:
+        propertyName: variant
+
+    BusyCalendar:
+      type: object
+      description: Tagged union identifying an externally-synced busy calendar.
+      oneOf:
+        - type: object
+          properties:
+            provider:
+              type: string
+              enum: [Google]
+            id:
+              type: string
+        - type: object
+          properties:
+            provider:
+              type: string
+              enum: [Outlook]
+            id:
+              type: string
+        - type: object
+          properties:
+            provider:
+              type: string
+              enum: [Nettu]
+            id:
+              $ref: "#/components/schemas/ID"
+      discriminator:
+        propertyName: provider
+
+    RoundRobinAlgorithm:
+      type: string
+      enum: [availability, equalDistribution]
+
+    ServiceMultiPersonOptions:
+      type: object
+      description: Tagged union describing how a service picks hosts among multiple candidates.
+      oneOf:
+        - type: object
+          properties:
+            variant:
+              type: string
+              enum: [roundRobinAlgorithm]
+            data:
+              $ref: "#/components/schemas/RoundRobinAlgorithm"
+        - type: object
+          properties:
+            variant:
+              type: string
+              enum: [collective]
+        - type: object
+          properties:
+            variant:
+              type: string
+              enum: [group]
+            data:
+              type: integer
+              description: Group size.
+      discriminator:
+        propertyName: variant
+
+    ServiceDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    ServiceResourceDTO:
+      type: object
+      properties:
+        userId:
+          $ref: "#/components/schemas/ID"
+        serviceId:
+          $ref: "#/components/schemas/ID"
+        availability:
+          $ref: "#/components/schemas/TimePlan"
+        bufferBefore:
+          type: integer
+          format: int64
+        bufferAfter:
+          type: integer
+          format: int64
+        closestBookingTime:
+          type: integer
+          format: int64
+        furthestBookingTime:
+          type: integer
+          format: int64
+          nullable: true
+
+    ServiceWithUsersDTO:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ID"
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceResourceDTO"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    CreateServiceBody:
+      type: object
+      properties:
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+        multiPerson:
+          $ref: "#/components/schemas/ServiceMultiPersonOptions"
+
+    AddServiceUserBody:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          $ref: "#/components/schemas/ID"
+        availability:
+          $ref: "#/components/schemas/TimePlan"
+        bufferBefore:
+          type: integer
+          format: int64
+        bufferAfter:
+          type: integer
+          format: int64
+        closestBookingTime:
+          type: integer
+          format: int64
+          nullable: true
+        furthestBookingTime:
+          type: integer
+          format: int64
+          nullable: true
+
+    UpdateServiceUserBody:
+      type: object
+      properties:
+        availability:
+          $ref: "#/components/schemas/TimePlan"
+        bufferAfter:
+          type: integer
+          format: int64
+          nullable: true
+        bufferBefore:
+          type: integer
+          format: int64
+          nullable: true
+        closestBookingTime:
+          type: integer
+          format: int64
+          nullable: true
+        furthestBookingTime:
+          type: integer
+          format: int64
+          nullable: true
+
+    ServiceBookingSlotDTO:
+      type: object
+      properties:
+        start:
+          type: integer
+          format: int64
+        duration:
+          type: integer
+          format: int64
+        userIds:
+          type: array
+          items:
+            $ref: "#/components/schemas/ID"
+
+    ServiceBookingSlotsDateDTO:
+      type: object
+      properties:
+        date:
+          type: string
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceBookingSlotDTO"

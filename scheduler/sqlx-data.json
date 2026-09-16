@@ -1,0 +1,2450 @@
+{
+  "db": "PostgreSQL",
+  "099b1aadd13b6e6d89d61d8b0c816d0a513107b6ecab38069cc1c04af98127e8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Json",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            UPDATE services SET\n                multi_person = $2,\n                metadata = $3\n            WHERE service_uid = $1\n            "
+  },
+  "0dacc11cdd273495684aa5e443e3c147df1c1f8a07410f3c898457fc799f0ff8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Int8"
+              },
+              "name": "entity_version"
+            }
+          }
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO calendar_event_reminder_generation_jobs\n            (event_uid, timestamp, version)\n            VALUES($1, $2, $3)\n            "
+  },
+  "0f9c23be358c85395de95ec8ff022cb707dc573613319616c68236d05698f6ee": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 14,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 15,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n                    SELECT e.*, u.user_uid, account_uid FROM calendar_events AS e\n                    INNER JOIN calendars AS c\n                        ON c.calendar_uid = e.calendar_uid\n                    INNER JOIN users AS u\n                        ON u.user_uid = c.user_uid\n                    WHERE e.calendar_uid = $1 AND\n                    e.start_ts <= $2 AND e.end_ts >= $3\n                    "
+  },
+  "1b289e060b408882bc8daa6a689268a090de4e2f82b57540a4b3ec8ee1a97dc5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "calendar_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "ext_calendar_id",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "provider",
+          "ordinal": 3,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM externally_synced_calendars AS c\n            WHERE c.calendar_uid = $1\n            "
+  },
+  "1e32988145ea1469f8ff829cf730efdffe5df38d47b400eacc46da34ad448230": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Json",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO services(service_uid, account_uid, multi_person, metadata)\n            VALUES($1, $2, $3, $4)\n            "
+  },
+  "20a12bb5364ce87f8210848b3aeba7d2c052ddfb8c34eec947f1c9e50ccc8433": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT FROM service_user_busy_calendars WHERE\n            service_uid = $1 AND\n            user_uid = $2 AND\n            calendar_uid = $3\n            "
+  },
+  "24322e3d37c86aa36e8929fd6a9b32f6a18c49e352b9e5bcfe289eb7b686a0de": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO service_user_busy_calendars(service_uid, user_uid, calendar_uid)\n            VALUES($1, $2, $3)\n            "
+  },
+  "273c492047225a990ccd78fa2bf7e937860681b3bd96a206b6ee4995ac04711b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "secret_api_key",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "public_jwt_key",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "settings",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM accounts\n            WHERE account_uid = $1\n            RETURNING *\n            "
+  },
+  "292a182b383e6b53acc25d11ace7d34114996eb196e4f5759f86fcb75c7ada63": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "ext_calendar_id",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "ext_calendar_event_id",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "provider",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 5,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT e.*, c.user_uid FROM externally_synced_calendar_events AS e\n            INNER JOIN calendars AS c\n                ON c.calendar_uid = e.calendar_uid\n            WHERE e.event_uid = $1\n            "
+  },
+  "2b1765170962e8f38559d83c5b63514bdaecdd3183ba5b0f17e849594432fab2": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM user_integrations\n            WHERE user_uid = $1 AND\n            provider = $2\n            "
+  },
+  "2d199107909cb8715839719d4bab21c355fc58f088b441a83d9d8f507eede5f9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM calendars AS c\n            WHERE c.calendar_uid = $1\n            "
+  },
+  "2d95094ca505894b71df11bdb89e0f1cd2ce3f110f52cbecb594cac37d1a99d9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "schedule_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "rules",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 4,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 5,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT s.*, u.account_uid FROM schedules AS s\n            INNER JOIN users AS u\n                ON u.user_uid = s.user_uid\n            WHERE s.schedule_uid = $1\n            "
+  },
+  "2f0d6fda25b283022ede1d21ac05993e2e3d830ce9fedef15896db638d137ad4": {
+    "describe": {
+      "columns": [
+        {
+          "name": "calendar_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "settings",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 4,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT c.*, u.account_uid FROM calendars AS c\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE c.calendar_uid = $1\n            "
+  },
+  "314524dce5378809d1312a5f02a365ae2f9973fecfb978246d7bd842c799fc13": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM service_user_external_busy_calendars AS busy\n            WHERE busy.service_uid = $1 AND\n            busy.user_uid = $2 AND\n            busy.ext_calendar_id = $3 AND\n            busy.provider = $4\n            "
+  },
+  "34a936c0f2b048420febbc50b15e91ad6b30d517016d197d25d225ef5b96567d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 2,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Jsonb",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM users AS u\n            WHERE u.account_uid = $1 AND metadata @> $2\n            LIMIT $3\n            OFFSET $4\n            "
+  },
+  "386895f60dd59c5a0a56e75c279d632e9709b17760a5250d47031d84a01ad548": {
+    "describe": {
+      "columns": [
+        {
+          "name": "service_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "timestamp",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "count",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM service_reservations as r\n            WHERE r.service_uid = $1 AND\n            r.timestamp = $2\n            "
+  },
+  "3f602e58d6e5ee486a478708c57857ecda868db3abd1001a642c30549cb487b5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 14,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 15,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT e.*, u.user_uid, account_uid FROM calendar_events AS e\n            INNER JOIN calendars AS c\n                ON c.calendar_uid = e.calendar_uid\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE e.event_uid = $1\n            "
+  },
+  "4182f1c0b277e6bae6c3a59a43a6633909b7d13b3b098db1760e7844c269216e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "service_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "multi_person",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM services AS s\n            WHERE s.service_uid = $1\n            "
+  },
+  "472cbfe614d8a7d9b08fdd923beaec7eecc9714b18617ea78950bba786a23fcc": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            UPDATE users\n            SET account_uid = $2,\n            metadata = $3\n            WHERE user_uid = $1\n            "
+  },
+  "48e71f8203340b5c7289e22a7b2f2b48b20e3c1dc7b95d666c314475dfc3edbe": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Uuid",
+          "Uuid",
+          "Int8",
+          "Int8",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            UPDATE service_users SET\n                available_calendar_uid = $3,\n                available_schedule_uid = $4,\n                buffer_after = $5,\n                buffer_before = $6,\n                closest_booking_time = $7,\n                furthest_booking_time = $8\n            WHERE service_uid = $1 AND user_uid = $2\n            "
+  },
+  "501ef13a11ba2faacadd9a0dc484abdef01b81c9bba68250ed6ca2766be91adf": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM calendar_events AS c\n            WHERE c.event_uid = $1\n            RETURNING *\n            "
+  },
+  "52e66ef0d25dd55202e0ed3511698bed5f6b4d61d517530b450cc72fb855e174": {
+    "describe": {
+      "columns": [
+        {
+          "name": "service_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "multi_person",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Jsonb",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM services AS s\n            WHERE s.account_uid = $1 AND metadata @> $2\n            LIMIT $3\n            OFFSET $4\n            "
+  },
+  "5aa0f59ac75796272820dd60e6d5b16443dd63087d197106c0de303832dc8436": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8",
+          "Int8",
+          "Text",
+          "Int8",
+          "Bool",
+          "Int8",
+          "Int8",
+          "Json",
+          "Int8Array",
+          "Json",
+          "Uuid",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            UPDATE calendar_events SET\n                start_ts = $2,\n                duration = $3,\n                timezone = $4,\n                end_ts = $5,\n                busy = $6,\n                created = $7,\n                updated = $8,\n                recurrence = $9,\n                exdates = $10,\n                reminders = $11,\n                service_uid = $12,\n                metadata = $13\n            WHERE event_uid = $1\n            "
+  },
+  "5b724036d502f1527f6f9beb43a1421d14e71c70813866b2673fb3b49a71bc5f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          "Text",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Text"
+              },
+              "name": "ext_calendar_provider"
+            }
+          }
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO externally_synced_calendar_events(\n                event_uid,\n                calendar_uid,\n                ext_calendar_id,\n                ext_calendar_event_id,\n                provider\n            )\n            VALUES($1, $2, $3, $4, $5)\n            "
+  },
+  "6178bff04b549d3600eacb11ae901171a1bf2832a240ce7b6ed4b4ad1c210381": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Text"
+              },
+              "name": "ext_calendar_provider"
+            }
+          },
+          "Text",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO user_integrations(account_uid, user_uid, provider, refresh_token, access_token, access_token_expires_ts)\n            VALUES($1, $2, $3, $4, $5, $6)\n            "
+  },
+  "617d257b8ebc98124aadf8a5fdb0ef294644e44f6568610edc1440fc148e0c82": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Int8",
+          "Int8",
+          "Text",
+          "Int8",
+          "Bool",
+          "Int8",
+          "Int8",
+          "Json",
+          "Int8Array",
+          "Json",
+          "Uuid",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO calendar_events(\n                event_uid,\n                calendar_uid,\n                start_ts,\n                duration,\n                timezone,\n                end_ts,\n                busy,\n                created,\n                updated,\n                recurrence,\n                exdates,\n                reminders,\n                service_uid,\n                metadata\n            )\n            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n            "
+  },
+  "65f6fb803da0e49b5227141ad199adaebd82c0c57313ad0479fcaa51ac4b33a0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Uuid",
+          "Uuid",
+          "Int8",
+          "Int8",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO service_users(service_uid, user_uid, available_calendar_uid, available_schedule_uid, buffer_after, buffer_before, closest_booking_time, furthest_booking_time)\n            VALUES($1, $2, $3, $4, $5, $6, $7, $8)\n            "
+  },
+  "6819ea7b153c61a0c859dcb3f2c466c8bdd450b147f7989d32f2e79532c55d1a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 2,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM users AS u\n            WHERE u.user_uid = $1\n            RETURNING *\n            "
+  },
+  "686f317557a796abdb3aa254b70207229da12ba7bdef3115c621e3bc2e418ea3": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO users(user_uid, account_uid, metadata)\n            VALUES($1, $2, $3)\n            "
+  },
+  "6d7b7c4de3b77820753851235c25b73ee9661705db6d6cc58c358f99152309d8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT FROM service_user_external_busy_calendars WHERE\n            service_uid = $1 AND\n            user_uid = $2 AND\n            ext_calendar_id = $3\n            "
+  },
+  "6d8b17be58e55bd6c51aef757655973d637db2af2519cf59aa8a3b1ad9278308": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 14,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 15,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Jsonb",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT e.*, u.user_uid, account_uid FROM calendar_events AS e\n            INNER JOIN calendars AS c\n                ON c.calendar_uid = e.calendar_uid\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE u.account_uid = $1 AND e.metadata @> $2\n            LIMIT $3\n            OFFSET $4\n            "
+  },
+  "73ac00605d94f10c985f0eb0b2093532da6d6d4cd06a5cc9005c2b2e4569f6b7": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM account_integrations\n            WHERE account_uid = $1 AND\n            provider = $2\n            "
+  },
+  "75f42aa0640ca38b8ae68d8e2950a5403a9a791d093237a5366e566773997de8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM service_users AS s\n            WHERE s.service_uid = $1 AND\n            s.user_uid = $2\n            "
+  },
+  "77455db78470e7adb3b0dff75b274e760ebdf6cf58d6da75940a381180ca0777": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "remind_at",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "version",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "identifier",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM reminders AS r\n            WHERE r.remind_at <= $1\n            RETURNING *\n            "
+  },
+  "80786f9ca51fd11a4846a2d6281e18ec1772c932e20e9e8ed9a0bb652ed20906": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "version",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            WITH prev_v AS (\n                DELETE FROM event_reminder_versions\n                WHERE event_uid = $1\n                RETURNING *\n            )\n            INSERT INTO event_reminder_versions\n                (event_uid, version)\n            SELECT $1, version + 1 from prev_v\n            RETURNING *\n            "
+  },
+  "865bffa5f07eaed5e91e395511d19176792af89a8bc3d64c96f0fc4a2e68e583": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Text"
+              },
+              "name": "ext_calendar_provider"
+            }
+          }
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO service_user_external_busy_calendars(service_uid, user_uid, ext_calendar_id, provider)\n            VALUES($1, $2, $3, $4)\n            "
+  },
+  "89fb1898f7d614e33ed7c96bb0d550869cf85b6fb1a3e000577ae4e74a712501": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM service_user_busy_calendars AS busy\n            WHERE busy.service_uid = $1 AND\n            busy.user_uid = $2\n            "
+  },
+  "8c1d44d2d9d6078372ff57a41790ec0c7774f0c1f86245341cb1ebc401f7b7f2": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            UPDATE accounts\n            SET secret_api_key = $2,\n            public_jwt_key = $3,\n            settings = $4\n            WHERE account_uid = $1\n            "
+  },
+  "9186025d110de6a34e364c870959074d0c64e90f3a66ffbc890bbc505dfd02d7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "calendar_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "settings",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 4,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT c.*, u.account_uid FROM calendars AS c\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE c.user_uid = $1\n            "
+  },
+  "95f1e3614d613f2f22b47e18e44746210df11a3d412d1f54fb5b7aab8da9403e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "secret_api_key",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "public_jwt_key",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "settings",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "UuidArray"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM accounts\n            WHERE account_uid = ANY($1)\n            "
+  },
+  "968fca0a646464c9e5fc5400764499a47bd4af9bb4ee0d0b09555e3e8fec1ce2": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "timestamp",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "version",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM calendar_event_reminder_generation_jobs AS j\n            WHERE j.timestamp <= $1\n            RETURNING *\n            "
+  },
+  "99a8b77cb53ac1f8c9181744ec934247a749ee93707cd136abe9e33aac51f555": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 2,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM users AS u\n            WHERE u.user_uid = $1 AND\n            u.account_uid = $2\n            "
+  },
+  "9ce8fe431391490e1ef5d664edab166432645719105e17f108a918c73e48c652": {
+    "describe": {
+      "columns": [
+        {
+          "name": "schedule_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "rules",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 4,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 5,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT s.*, u.account_uid FROM schedules AS s\n            INNER JOIN users AS u\n                ON u.user_uid = s.user_uid\n            WHERE s.user_uid = $1\n            "
+  },
+  "9ef8408f9010b1e72cc6abfa3ee444d63139ae8b9976d366da29b2d831c8d577": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text",
+          "Text",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Text"
+              },
+              "name": "ext_calendar_provider"
+            }
+          }
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO account_integrations(account_uid, client_id, client_secret, redirect_uri, provider)\n            VALUES($1, $2, $3, $4, $5)\n            "
+  },
+  "a233ecc6723d546776dcebcfb11c45f735ba8644062aeebf0848ebe24372353c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "schedule_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "rules",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 4,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM schedules AS s\n            WHERE s.schedule_uid = $1\n            RETURNING *\n            "
+  },
+  "a44333a52c7262353a57ddb58d99fde9ee7db2479abc0f43e4deaa0e5ad3362a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "version",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO event_reminder_versions\n                (event_uid)\n            VALUES\n                ($1)\n            RETURNING *\n            "
+  },
+  "ab3f370879ccda6e5533e707897ccc68a0f5a5ca62afa0e4ef6546fc2da90085": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "refresh_token",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "access_token",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "access_token_expires_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "provider",
+          "ordinal": 5,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM user_integrations\n            WHERE user_uid = $1\n            "
+  },
+  "ad6ef2659ed0171e4d232c3644985f1e6e7ec139c11fd9fd88d7d5b8f5025f0e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Int8",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Int8"
+              },
+              "name": "entity_version"
+            }
+          },
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO reminders\n            (event_uid, account_uid, remind_at, version, identifier)\n            VALUES($1, $2, $3, $4, $5)\n            "
+  },
+  "ae40f0f5299e2487a4b1417bfecd4000b149be7e46b5bd81108b8d2297d0eb53": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 14,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 15,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Bool",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT e.*, u.user_uid, account_uid FROM calendar_events AS e\n            INNER JOIN calendars AS c\n                ON c.calendar_uid = e.calendar_uid\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE u.user_uid = $1 AND\n            e.busy = $2 AND\n            e.service_uid IS NOT NULL AND\n            e.start_ts <= $3 AND e.end_ts >= $4\n            "
+  },
+  "b6cf4fb5085d029b314caf5aca6d857598dce67c3e74f98b7f3b63e3ae9b2f2d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "secret_api_key",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "public_jwt_key",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "settings",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM accounts\n            WHERE secret_api_key = $1\n            "
+  },
+  "bfcf8d6a0af1abb812265287daa1afc9cff392932d138ad714cb2f62398463c9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Json",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            UPDATE calendars\n            SET settings = $2,\n            metadata = $3\n            WHERE calendar_uid = $1\n            "
+  },
+  "c1c2d4d22bfcd845605226f7ffbcc0d181afee7bed99be749ea90e20e4677395": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8",
+          "Text",
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            UPDATE user_integrations\n            SET access_token = $1,\n            access_token_expires_ts = $2,\n            refresh_token = $3\n            WHERE user_uid = $4 AND provider = $5\n            "
+  },
+  "c2a90e4402eac23efa0db56c2af355d9acde2f60d1dbed2657a78aadfb24e326": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM externally_synced_calendars\n            WHERE calendar_uid = $1 AND\n                user_uid = $2 AND\n                ext_calendar_id = $3 AND\n                provider = $4\n            "
+  },
+  "c31bbc907c6a574a36403fe24e287c149c46464ee331d4ffb96bb0b3f279ef83": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM calendar_events AS c\n            WHERE c.service_uid = $1\n            "
+  },
+  "c8eaa759c793a7a6d143ad2281e0c9326b88bafce0a9dc2ff42725fe5421a4ec": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          {
+            "Custom": {
+              "kind": {
+                "Domain": "Text"
+              },
+              "name": "ext_calendar_provider"
+            }
+          }
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO externally_synced_calendars (\n                calendar_uid,\n                user_uid,\n                ext_calendar_id,\n                provider\n            )\n            VALUES($1, $2, $3, $4)\n            "
+  },
+  "cdb8687c76618609f72f5c1009af4afa51e81912acb3ae0c5946a753350c0526": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Json",
+          "Text",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            UPDATE schedules\n            SET rules = $2,\n            timezone = $3,\n            metadata = $4\n            WHERE schedule_uid = $1\n            "
+  },
+  "d529ad25cd78192d7df3deeb7238d94c1550eda6813d1069524a150e6b7008a9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Json",
+          "Text",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO schedules(schedule_uid, user_uid, rules, timezone, metadata)\n            VALUES($1, $2, $3, $4, $5)\n            "
+  },
+  "d59f7d88f988149254292ab6faa175a965fe7fa0cc9c45a42160997199c78114": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "client_id",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "client_secret",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "redirect_uri",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "provider",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM account_integrations\n            WHERE account_uid = $1\n            "
+  },
+  "d9639a70dc9acac3b7366859eb70c24b9781020b8c3e8f6264d9e8cdc1d37db6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO service_reservations(service_uid, timestamp)\n            VALUES($1, $2)\n            ON CONFLICT(service_uid, timestamp) DO UPDATE SET count = service_reservations.count + 1\n            "
+  },
+  "dae4e8fe37ab9e71be49ccfda4cd101b0be7d470da731625b2da255c4e16fd3a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "secret_api_key",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "public_jwt_key",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "settings",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM accounts\n            WHERE account_uid = $1\n            "
+  },
+  "db009061ff49fcdd2b16affb3161768b2f57a94e13fbff4480b29012f1b9d062": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 2,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM users AS u\n            WHERE u.user_uid = $1\n            "
+  },
+  "dc52786bd2e6e3f429a0d02698dd4bca4cbfbaa08950402d7626568231dc94ec": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO accounts(account_uid, secret_api_key, public_jwt_key, settings)\n            VALUES($1, $2, $3, $4)\n            "
+  },
+  "dcd79519fef773576f53e1dd21933eba382c3394ac460731686329a2f84fd870": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Json",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO calendars(calendar_uid, user_uid, settings, metadata)\n            VALUES($1, $2, $3, $4)\n            "
+  },
+  "dd57ab255226609c1a8aaecae54ece0ea719edc8387b7abbffea0bb373c609b9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "calendar_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "settings",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 3,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 4,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Jsonb",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT c.*, u.account_uid FROM calendars AS c\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE u.account_uid = $1 AND c.metadata @> $2\n            LIMIT $3\n            OFFSET $4\n            "
+  },
+  "e6a3728ef664307e5038bfd5a543e38053be9d77d6c9da28741e5f17a8081448": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 14,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 15,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "UuidArray",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT e.*, u.user_uid, account_uid FROM calendar_events AS e\n            INNER JOIN calendars AS c\n                ON c.calendar_uid = e.calendar_uid\n            INNER JOIN users AS u\n                ON u.user_uid = c.user_uid\n            WHERE e.service_uid = $1 AND\n            u.user_uid = ANY($2) AND\n            e.start_ts <= $3 AND e.end_ts >= $4\n            "
+  },
+  "e7da03c1fc42c828dee243bb04f6bd036fd7ed3a5c3712df228933b6bb3ffa4c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "event_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "calendar_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "start_ts",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "duration",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "end_ts",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "busy",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "created",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "updated",
+          "ordinal": 7,
+          "type_info": "Int8"
+        },
+        {
+          "name": "recurrence",
+          "ordinal": 8,
+          "type_info": "Json"
+        },
+        {
+          "name": "exdates",
+          "ordinal": 9,
+          "type_info": "Int8Array"
+        },
+        {
+          "name": "reminders",
+          "ordinal": 10,
+          "type_info": "Json"
+        },
+        {
+          "name": "service_uid",
+          "ordinal": 11,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 12,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 13,
+          "type_info": "Text"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 14,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 15,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n                    SELECT e.*, u.user_uid, account_uid FROM calendar_events AS e\n                    INNER JOIN calendars AS c\n                        ON c.calendar_uid = e.calendar_uid\n                    INNER JOIN users AS u\n                        ON u.user_uid = c.user_uid\n                    WHERE e.calendar_uid = $1\n                    "
+  },
+  "eb8c849dd74b03336ee21563f429170d057c9fe8f629cc919925d51e4f9c5eb7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 2,
+          "type_info": "Jsonb"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "UuidArray"
+        ]
+      }
+    },
+    "query": "\n            SELECT * FROM users AS u\n            WHERE u.user_uid = ANY($1)\n            "
+  },
+  "ee9865c4c7a52e1550408a4b99baf8bcdaf4337171c5b7024f759d5e3f78f20c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            UPDATE service_reservations as r\n            SET count = count - 1\n            WHERE r.service_uid = $1 AND r.timestamp = $2\n            "
+  },
+  "f6143978a3245b1c6302d464d748fe27d5c5614c1bcd4de1e15f55ef2cdae9c7": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM service_user_busy_calendars AS busy\n            WHERE busy.service_uid = $1 AND\n            busy.user_uid = $2 AND\n            busy.calendar_uid = $3\n            "
+  },
+  "f935be7d89feb522a9068d05c9d539d39466a4caa2dc97463165cbeb91e6e803": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM services AS s\n            WHERE s.service_uid = $1\n            "
+  },
+  "fb82e70ae01f35a2c88c860fae48dfca4fe9c0bb4df09bc6e749ac3a5b33da81": {
+    "describe": {
+      "columns": [
+        {
+          "name": "schedule_uid",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "user_uid",
+          "ordinal": 1,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "rules",
+          "ordinal": 2,
+          "type_info": "Json"
+        },
+        {
+          "name": "timezone",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "metadata",
+          "ordinal": 4,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "account_uid",
+          "ordinal": 5,
+          "type_info": "Uuid"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Jsonb",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT s.*, u.account_uid FROM schedules AS s\n            INNER JOIN users AS u\n                ON u.user_uid = s.user_uid\n            WHERE u.account_uid = $1 AND s.metadata @> $2\n            LIMIT $3\n            OFFSET $4\n            "
+  }
+}

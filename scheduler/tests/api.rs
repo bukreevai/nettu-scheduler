@@ -384,6 +384,7 @@ async fn test_crud_events() {
     let event = admin_client
         .event
         .create(CreateEventInput {
+            timezone: None,
             user_id: user.id.clone(),
             calendar_id: calendar.id.clone(),
             duration: 1000 * 60 * 60,
@@ -420,6 +421,7 @@ async fn test_crud_events() {
     assert!(admin_client
         .event
         .update(UpdateEventInput {
+            timezone: None,
             event_id: event.id.clone(),
             exdates: Some(vec![0]),
             busy: None,

@@ -15,6 +15,8 @@ type CreateCalendarEventReq = {
   calendarId: string;
   startTs: number;
   duration: number;
+  /** Overrides the calendar's timezone for this event's recurrence. */
+  timezone?: string;
   busy?: boolean;
   recurrence?: RRuleOptions;
   serviceId?: boolean;
@@ -25,6 +27,11 @@ type CreateCalendarEventReq = {
 type UpdateCalendarEventReq = {
   startTs?: number;
   duration?: number;
+  /**
+   * Omit to leave the timezone override untouched, pass `null` to clear it
+   * (revert to the calendar's timezone), or a timezone string to set it.
+   */
+  timezone?: string | null;
   busy?: boolean;
   recurrence?: RRuleOptions;
   serviceId?: boolean;
